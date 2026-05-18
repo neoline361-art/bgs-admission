@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "BGS Admission Connect"
+version = "1.0.0"
+id = "artifacts/bgs-admission"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22675
+
+[services.development]
+run = "pnpm --filter @workspace/bgs-admission run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bgs-admission", "run", "build" ]
+publicDir = "artifacts/bgs-admission/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22675"
+BASE_PATH = "/"

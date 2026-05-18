@@ -1,0 +1,330 @@
+BUILD A COMPLETE OPEN-SOURCE WEB APPLICATION. ZERO PREMIUM TOOLS. EVERYTHING FREE FOREVER.
+
+══════════════════════════════════════════════════════════════════
+PROJECT
+══════════════════════════════════════════════════════════════════
+
+Name: BGS Admission Connect
+College: BGS PU College, Hanumanthpura, Shidlaghatta, Karnataka 562105
+Code: MC0118
+
+══════════════════════════════════════════════════════════════════
+HOW IT WORKS
+══════════════════════════════════════════════════════════════════
+
+SAME QR CODE FOR EVERYONE.
+
+Student scans QR → Opens website → Clicks [Apply] → Fills form → Submits → Stored in database forever.
+
+Staff scans same QR → Opens website → Clicks [Staff Login] → Enters username + PIN + CAPTCHA → Logs in → Sees all applications → Manages everything.
+
+══════════════════════════════════════════════════════════════════
+LANDING PAGE (/)
+══════════════════════════════════════════════════════════════════
+
+Two buttons only:
+
+[📝 Apply for Admission]
+[🔐 Staff Login]
+
+══════════════════════════════════════════════════════════════════
+1. APPLY PAGE (/apply)
+══════════════════════════════════════════════════════════════════
+
+NO login. NO registration. NO account.
+
+Form:
+1. Student Full Name *
+2. Parent/Guardian Name *
+3. Phone Number * (10 digits only)
+4. Alternate Phone (optional)
+5. Village * (dropdown)
+6. Current School *
+7. Course * (dropdown: PCMB, PCMCS, CEBA, CEBAC, Arts)
+8. Previous Marks % (optional)
+9. Message (optional)
+
+[Submit]
+
+On submit:
+→ Save to Supabase PostgreSQL database
+→ Generate ID: BGS-2026-0001, BGS-2026-0002, etc.
+→ Show success page with ID
+→ Done.
+
+══════════════════════════════════════════════════════════════════
+2. STAFF LOGIN (/staff/login)
+══════════════════════════════════════════════════════════════════
+
+Three fields:
+1. Username * (text: kumar, radha, office1, admin)
+2. PIN * (4 digits, hidden: ••••)
+3. CAPTCHA *
+   - Show 4 random digits with light CSS distortion
+   - User types exactly what they see
+   - [Refresh] for new CAPTCHA
+   - NO math. Just see and type.
+
+[Login]
+
+Roles:
+- teacher → Teacher Dashboard
+- office → Office Dashboard  
+- admin → Admin Dashboard
+
+══════════════════════════════════════════════════════════════════
+3. TEACHER DASHBOARD (/teacher)
+══════════════════════════════════════════════════════════════════
+
+Table view. All columns visible.
+
+Columns:
+ID | Date | Student | Parent | Phone | Village | Course | Status | Actions
+
+Status dropdown:
+- New (grey)
+- Contacted (blue)
+- Meeting Fixed (amber)
+- Confirmed (green)
+- Archived (red)
+
+Actions per row:
+[📞 Call] → Opens phone dialer
+[💬 WhatsApp] → Opens wa.me/91{phone}?text={msg} in new tab
+[📩 SMS] → Send SMS via API (Fast2SMS/MSG91 placeholder)
+[📝 Notes] → Add/edit notes for this application
+[✓ Confirm] → Status = confirmed
+[✕ Archive] → Status = archived
+
+Top:
+- Welcome, [Teacher Name]
+- Stats: Total | New | Contacted | Meeting | Confirmed | Archived
+- [🖨️ Print] → A4 table
+- [🔓 Logout]
+
+Filter by status.
+
+Real-time: New applications appear instantly without refresh.
+
+══════════════════════════════════════════════════════════════════
+4. OFFICE DASHBOARD (/office)
+══════════════════════════════════════════════════════════════════
+
+FULL CONTROL. ALL APPLICATIONS. ALL ACTIONS.
+
+Table with ALL columns. Full width.
+
+Columns:
+ID | Date | Student | Parent | Phone | Alt Phone | Village | School | Course | Marks | Status | Meeting | Teacher | Notes | Actions
+
+Actions:
+[✏️ Edit] → Edit any field
+[📞 Call]
+[💬 WhatsApp]
+[📩 SMS]
+[📅 Fix Meeting] → Set date and time
+[✓ Confirm]
+[✕ Archive]
+[👤 Assign Teacher] → Dropdown
+
+Bulk Actions (checkbox select):
+☑️ Select all / individual
+[💬 WhatsApp Selected]
+[📩 SMS Selected]
+[📊 Export CSV]
+[📊 Export Excel]
+[📊 Export LibreOffice Sheet]
+[🖨️ Print Selected]
+
+Top:
+- Welcome, [Office Name]
+- Stats: Total | New | Contacted | Meeting | Confirmed | Archived
+- Search: By name, phone, ID, village
+- Filter: Village, Course, Status, Date, Teacher
+- [📱 Share QR] → Show QR code image + URL + [Copy Link]
+- [📊 Export Full Database] → One click, all data
+- [🔓 Logout]
+
+══════════════════════════════════════════════════════════════════
+5. ADMIN DASHBOARD (/admin)
+══════════════════════════════════════════════════════════════════
+
+Full system overview.
+
+Cards:
+- Total Applications
+- Confirmed
+- Pending
+- Meetings Today
+- Archived
+
+Tables:
+- Village Summary (Village | Total | Confirmed | %)
+- Course Demand (Course | Total | Confirmed | %)
+- Teacher Performance (Teacher | Assigned | Contacted | Meeting | Confirmed | Archived)
+
+Manage:
+- Add Staff (Name, Username, PIN, Role, Phone)
+- Edit PIN
+- Activate/Deactivate
+- List all staff
+
+Settings:
+- College Info
+- Message Templates
+- Form Fields (enable/disable)
+
+Exports:
+- [📊 Full CSV]
+- [📊 Full Excel]
+- [📊 Full LibreOffice]
+- [🖨️ Print Report]
+- [📥 Database Backup]
+
+══════════════════════════════════════════════════════════════════
+MESSAGES (One-Click Send)
+══════════════════════════════════════════════════════════════════
+
+NEW APPLICATION RECEIVED:
+"BGS College: We received {Student}'s application (ID: {ID}). We will contact you within 2 days. -BGS Hanumanthpura"
+
+CONTACTED:
+"BGS College: Hello {Parent}, regarding {Student}'s admission. When can you visit campus? -BGS Hanumanthpura"
+
+MEETING FIXED:
+"BGS College: Meeting for {Student} on {Date} at {Time}. BGS PU College, Hanumanthpura. Bring: Marks Card, TC, Aadhaar, 4 Photos. -BGS Hanumanthpura"
+
+CONFIRMED:
+"🎉 BGS College: {Student} CONFIRMED for {Course}! Welcome! Class starts {Date}. -BGS Hanumanthpura"
+
+ARCHIVED:
+"BGS College: Application {ID} closed. Thank you. Best wishes. -BGS Hanumanthpura"
+
+All messages sent via:
+- WhatsApp: wa.me/91{phone}?text={msg} (free, teacher clicks send)
+- SMS: API call (Fast2SMS/MSG91 placeholder, configurable)
+
+══════════════════════════════════════════════════════════════════
+EXPORTS (One-Click Download)
+══════════════════════════════════════════════════════════════════
+
+Formats:
+- CSV (comma-separated)
+- Excel (.xlsx)
+- LibreOffice Sheet (.ods)
+
+Structure: Clean table with all columns.
+
+Saved to: Local Downloads folder.
+
+══════════════════════════════════════════════════════════════════
+DATABASE (SUPABASE - FREE TIER)
+══════════════════════════════════════════════════════════════════
+
+Tables:
+
+staff:
+- id (UUID, PK)
+- username (TEXT, UNIQUE)
+- name (TEXT)
+- pin_hash (TEXT)
+- role (TEXT: teacher/office/admin)
+- phone (TEXT)
+- is_active (BOOLEAN)
+
+applications:
+- id (UUID, PK)
+- app_id (TEXT, UNIQUE) → BGS-2026-XXXX auto-generated
+- student_name (TEXT)
+- parent_name (TEXT)
+- phone (TEXT)
+- alt_phone (TEXT)
+- village (TEXT)
+- current_school (TEXT)
+- course (TEXT)
+- marks_percent (NUMBER)
+- message (TEXT)
+- status (TEXT: new/contacted/meeting_fixed/confirmed/archived)
+- meeting_date (DATE)
+- meeting_time (TIME)
+- assigned_teacher_id (UUID → staff)
+- notes (TEXT)
+- created_at (TIMESTAMP)
+- updated_at (TIMESTAMP)
+
+status_logs:
+- id (UUID, PK)
+- application_id (UUID → applications)
+- from_status (TEXT)
+- to_status (TEXT)
+- changed_by (UUID → staff)
+- changed_at (TIMESTAMP)
+- note (TEXT)
+
+sms_logs:
+- id (UUID, PK)
+- application_id (UUID → applications)
+- phone (TEXT)
+- message (TEXT)
+- channel (TEXT: whatsapp/sms)
+- sent_by (UUID → staff)
+- sent_at (TIMESTAMP)
+- status (TEXT: sent/failed/pending)
+
+Auto-generate app_id on insert.
+Auto-update updated_at on change.
+
+══════════════════════════════════════════════════════════════════
+TECH STACK (ALL OPEN SOURCE, ZERO PREMIUM)
+══════════════════════════════════════════════════════════════════
+
+Frontend:
+- React 19 (MIT license, free)
+- Vite (MIT license, free)
+- Tailwind CSS 3.4 (MIT license, free)
+- React Router DOM 7 (MIT license, free)
+- Lucide React (ISC license, free)
+
+Backend:
+- Supabase (Apache 2.0, free tier)
+
+No paid tools. No premium plugins. No enterprise licenses. Ever.
+
+══════════════════════════════════════════════════════════════════
+DESIGN
+══════════════════════════════════════════════════════════════════
+
+English default. [ಕನ್ನಡ] toggle.
+
+Clean. Simple. No animations. No gradients.
+
+Colors:
+- Blue primary: #1e40af
+- Green confirmed: #16a34a
+- Amber meeting: #d97706
+- Blue contacted: #3b82f6
+- Grey new: #6b7280
+- Red archived: #dc2626
+
+Mobile-first. Large text. Big buttons.
+
+══════════════════════════════════════════════════════════════════
+OUTPUT
+══════════════════════════════════════════════════════════════════
+
+Generate COMPLETE codebase. Every file. Full content. No placeholders.
+
+Include:
+- All React files
+- Supabase client setup
+- SQL schema file
+- .env.example
+- README with setup steps
+
+Ready to run: npm install && npm run dev
+Ready to build: npm run build
+Ready to deploy.
+
+══════════════════════════════════════════════════════════════════
+END
+══════════════════════════════════════════════════════════════════
