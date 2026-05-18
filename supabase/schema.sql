@@ -1,58 +1,85 @@
 -- ============================================================
--- BGS Admission Connect - Supabase Schema
+-- BGS ADMISSION CONNECT - DATABASE SCHEMA
 -- BGS PU College, Hanumanthpura, Shidlaghatta, Karnataka 562105
 -- ============================================================
--- Run this entire file in: Supabase → SQL Editor → New Query → Run
+-- HOW TO RUN:
+--   Supabase → SQL Editor → New Query → paste this → Run
+--   Safe to run multiple times (drops & recreates everything cleanly)
+-- ============================================================
 
--- ============================================================
 -- EXTENSIONS
--- ============================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
--- STAFF TABLE
+-- DROP EXISTING (for clean re-runs)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS staff (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username   TEXT UNIQUE NOT NULL,
-  name       TEXT NOT NULL,
-  pin_hash   TEXT NOT NULL,
-  role       TEXT NOT NULL CHECK (role IN ('teacher', 'office', 'admin')),
-  phone      TEXT,
-  is_active  BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+DROP TRIGGER IF EXISTS trigger_app_id       ON applications;
+DROP TRIGGER IF EXISTS trigger_updated_at   ON applications;
+DROP TRIGGER IF EXISTS set_app_id           ON applications;
+DROP TRIGGER IF EXISTS applications_updated_at ON applications;
+
+DROP FUNCTION IF EXISTS generate_app_id()   CASCADE;
+DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS export_and_clear_old_data(DATE) CASCADE;
+
+DROP TABLE IF EXISTS sms_logs    CASCADE;
+DROP TABLE IF EXISTS status_logs CASCADE;
+DROP TABLE IF EXISTS applications CASCADE;
+DROP TABLE IF EXISTS staff       CASCADE;
+
+DROP SEQUENCE IF EXISTS app_id_seq;
+
+-- ============================================================
+-- SEQUENCE: BGS-2026-0001, 0002, ...
+-- ============================================================
+CREATE SEQUENCE app_id_seq START 1;
+
+-- ============================================================
+-- STAFF
+-- ============================================================
+CREATE TABLE staff (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username    TEXT UNIQUE NOT NULL,
+  name        TEXT NOT NULL,
+  pin_hash    TEXT NOT NULL,
+  role        TEXT NOT NULL CHECK (role IN ('teacher', 'office', 'admin')),
+  phone       TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_login  TIMESTAMPTZ
 );
 
 -- ============================================================
--- APPLICATIONS TABLE
+-- APPLICATIONS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS applications (
-  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  app_id               TEXT UNIQUE,                          -- Auto-generated: BGS-2026-0001
-  student_name         TEXT NOT NULL,
-  parent_name          TEXT NOT NULL,
-  phone                TEXT NOT NULL,
-  alt_phone            TEXT,
-  village              TEXT NOT NULL,
-  current_school       TEXT NOT NULL,
-  course               TEXT NOT NULL,
-  marks_percent        NUMERIC(5,2),
-  message              TEXT,
-  status               TEXT NOT NULL DEFAULT 'new'
-                         CHECK (status IN ('new','contacted','meeting_fixed','confirmed','archived')),
-  meeting_date         DATE,
-  meeting_time         TIME,
-  assigned_teacher_id  UUID REFERENCES staff(id) ON DELETE SET NULL,
-  notes                TEXT,
-  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE applications (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  app_id              TEXT UNIQUE,
+  student_name        TEXT NOT NULL,
+  parent_name         TEXT NOT NULL,
+  phone               TEXT NOT NULL,
+  alt_phone           TEXT,
+  village             TEXT NOT NULL,
+  current_school      TEXT NOT NULL,
+  course              TEXT NOT NULL,
+  marks_percent       DECIMAL(5,2),
+  message             TEXT,
+  status              TEXT NOT NULL DEFAULT 'new'
+                        CHECK (status IN ('new','contacted','meeting_fixed','confirmed','archived')),
+  meeting_date        DATE,
+  meeting_time        TIME,
+  assigned_teacher_id UUID REFERENCES staff(id) ON DELETE SET NULL,
+  notes               TEXT NOT NULL DEFAULT '',
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
--- STATUS LOGS TABLE
+-- STATUS LOGS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS status_logs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE status_logs (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   application_id  UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
   from_status     TEXT,
   to_status       TEXT NOT NULL,
@@ -62,10 +89,10 @@ CREATE TABLE IF NOT EXISTS status_logs (
 );
 
 -- ============================================================
--- SMS LOGS TABLE
+-- SMS / WHATSAPP LOGS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS sms_logs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE sms_logs (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   application_id  UUID REFERENCES applications(id) ON DELETE CASCADE,
   phone           TEXT NOT NULL,
   message         TEXT NOT NULL,
@@ -76,10 +103,19 @@ CREATE TABLE IF NOT EXISTS sms_logs (
 );
 
 -- ============================================================
--- SEQUENCE: AUTO-INCREMENT app_id (BGS-2026-0001, 0002, ...)
+-- INDEXES
 -- ============================================================
-CREATE SEQUENCE IF NOT EXISTS app_id_seq START 1;
+CREATE INDEX idx_app_phone   ON applications(phone);
+CREATE INDEX idx_app_app_id  ON applications(app_id);
+CREATE INDEX idx_app_status  ON applications(status);
+CREATE INDEX idx_app_village ON applications(village);
+CREATE INDEX idx_app_course  ON applications(course);
+CREATE INDEX idx_app_teacher ON applications(assigned_teacher_id);
+CREATE INDEX idx_app_created ON applications(created_at);
 
+-- ============================================================
+-- TRIGGER: Auto-generate BGS-2026-XXXX app_id
+-- ============================================================
 CREATE OR REPLACE FUNCTION generate_app_id()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -90,121 +126,95 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS set_app_id ON applications;
-CREATE TRIGGER set_app_id
+CREATE TRIGGER trigger_app_id
   BEFORE INSERT ON applications
   FOR EACH ROW EXECUTE FUNCTION generate_app_id();
 
 -- ============================================================
--- TRIGGER: Auto-update updated_at on applications
+-- TRIGGER: Auto-update updated_at
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = NOW();
+  NEW.updated_at := NOW();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS applications_updated_at ON applications;
-CREATE TRIGGER applications_updated_at
+CREATE TRIGGER trigger_updated_at
   BEFORE UPDATE ON applications
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
 -- ROW LEVEL SECURITY
--- Enable RLS on all tables.
--- Applications: public can INSERT (for student form submission).
--- All SELECT/UPDATE: open (for staff dashboards using anon key).
 -- ============================================================
-
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE staff        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE status_logs  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sms_logs     ENABLE ROW LEVEL SECURITY;
 
--- Applications: anyone can submit (INSERT)
-CREATE POLICY "Public can submit applications"
-  ON applications FOR INSERT
-  TO anon
-  WITH CHECK (true);
-
--- Applications: anyone with anon key can read (staff dashboards)
-CREATE POLICY "Anon can read applications"
-  ON applications FOR SELECT
-  TO anon
-  USING (true);
-
--- Applications: anon can update (staff dashboards)
-CREATE POLICY "Anon can update applications"
-  ON applications FOR UPDATE
-  TO anon
-  USING (true);
-
--- Staff: anon can read (for login verification)
-CREATE POLICY "Anon can read staff"
-  ON staff FOR SELECT
-  TO anon
-  USING (true);
-
--- Staff: anon can insert (for adding staff via admin)
-CREATE POLICY "Anon can insert staff"
-  ON staff FOR INSERT
-  TO anon
-  WITH CHECK (true);
-
--- Staff: anon can update (for PIN changes, active toggle)
-CREATE POLICY "Anon can update staff"
-  ON staff FOR UPDATE
-  TO anon
-  USING (true);
-
--- Status logs: anon can insert and read
-CREATE POLICY "Anon can insert status_logs"
-  ON status_logs FOR INSERT TO anon WITH CHECK (true);
-CREATE POLICY "Anon can read status_logs"
-  ON status_logs FOR SELECT TO anon USING (true);
-
--- SMS logs: anon can insert and read
-CREATE POLICY "Anon can insert sms_logs"
-  ON sms_logs FOR INSERT TO anon WITH CHECK (true);
-CREATE POLICY "Anon can read sms_logs"
-  ON sms_logs FOR SELECT TO anon USING (true);
+-- Applications: public can submit
+CREATE POLICY "public_insert_applications"  ON applications FOR INSERT TO anon WITH CHECK (true);
+-- Applications: anon key can read and update (staff dashboards)
+CREATE POLICY "anon_select_applications"    ON applications FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_update_applications"    ON applications FOR UPDATE TO anon USING (true);
+-- Staff: anon key can read/insert/update (login + admin management)
+CREATE POLICY "anon_select_staff"           ON staff FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_insert_staff"           ON staff FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_update_staff"           ON staff FOR UPDATE TO anon USING (true);
+-- Logs: anon can insert and read
+CREATE POLICY "anon_insert_status_logs"     ON status_logs FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_select_status_logs"     ON status_logs FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_insert_sms_logs"        ON sms_logs FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_select_sms_logs"        ON sms_logs FOR SELECT TO anon USING (true);
 
 -- ============================================================
--- REALTIME: Enable for live dashboard updates
+-- REALTIME: Enable live dashboard updates
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE applications;
 
 -- ============================================================
--- SEED DATA: Default Staff Accounts
--- PINs are SHA-256("PIN" + "bgs_salt_2026")
--- Default PINs: admin=1234, kumar=5678, radha=9012, office1=3456
+-- SEED: DEFAULT STAFF
+-- PINs hashed with SHA-256 + salt "bgs_salt_2026"
+-- kumar=1234  radha=5678  office1=9012  admin=0000
+-- CHANGE THESE PINS after first login using Admin Dashboard!
 -- ============================================================
-
--- To generate your own hashes, run this in your browser console:
---   const hash = async (pin) => {
---     const enc = new TextEncoder();
---     const buf = await crypto.subtle.digest("SHA-256", enc.encode(pin + "bgs_salt_2026"));
---     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
---   };
---   console.log(await hash("1234"));
-
--- admin / PIN: 1234
 INSERT INTO staff (username, name, pin_hash, role, phone, is_active) VALUES
-  ('admin',   'Administrator',  'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 'admin',  NULL, true),
-  ('kumar',   'Kumar Sir',      '6c84fb90acfd5e96b19bfd2fb3a0eed9c5c96e5e4dcdc9c28e97c1a1c6b93a4e', 'teacher', NULL, true),
-  ('radha',   'Radha Ma''am',    '3f4e3b3bcf58d6e7f3d7b8bfa2c3e98a8e7eb97eb8e2ee55ced9c4c7ab7ecf97', 'teacher', NULL, true),
-  ('office1', 'Office Staff',   'c1c8b2b22af3b9c0c4f68a0ee0e7e0d8e5c0c4c8f2f3f5e3c6b0b1a7a9f5d0c', 'office', NULL, true)
-ON CONFLICT (username) DO NOTHING;
+  ('kumar',   'Shri. Kumar',    '9dab8299c1c0cc839d1e275ca2e11521d698c7a0a824e6575e68f4049206e152', 'teacher', '9876500001', true),
+  ('radha',   'Smt. Radha',     'd9f81aa5c6f10648105238b3311d0c42199b8fe13c4bbeaba880e21d45b1a408', 'teacher', '9876500002', true),
+  ('office1', 'Shri. Ananth',   '99c5f12b043b8ecef1a7d49466db64630e033328be16e43b284282e7a408de45', 'office',  '9876500003', true),
+  ('admin',   'Principal',      '525f78af8539215f31062f901bbd264d411e96be5b2b99ddb35dfcfcd124bcbf', 'admin',   '9876500000', true);
 
 -- ============================================================
--- NOTE ON DEFAULT PINS
+-- SEED: SAMPLE APPLICATIONS (for testing)
 -- ============================================================
--- The hashes above are EXAMPLES. You MUST generate real hashes.
--- Use the Admin Dashboard → Staff Management → Add Staff to add
--- your real staff members with proper PINs after setup.
--- 
--- Or use the browser console snippet above to get the correct hash
--- for any PIN you want, then UPDATE the staff table directly.
+INSERT INTO applications
+  (student_name, parent_name, phone, village, current_school, course, marks_percent, status, assigned_teacher_id, notes)
+VALUES
+  ('Priya Ramesh',    'Ramesh',  '9876543210', 'Kudur',          'Govt High School, Kudur',   'PCMB',  87.5, 'new',          (SELECT id FROM staff WHERE username='kumar'),  ''),
+  ('Lakshmi Narayan', 'Narayan', '9988776655', 'Manchenahalli',  'St. Marys School',           'CEBA',  72.0, 'contacted',    (SELECT id FROM staff WHERE username='radha'),  'Parent works mornings'),
+  ('Suresh Gowda',    'Gowda',   '9876512345', 'Dibburahalli',   'Govt High School',           'PCMCS', 91.0, 'confirmed',    (SELECT id FROM staff WHERE username='kumar'),  'Fee paid'),
+  ('Anita Devi',      'Devi',    '9876523456', 'Shidlaghatta',   'Govt High School',           'PCMB',  85.0, 'meeting_fixed',(SELECT id FROM staff WHERE username='kumar'),  'Meeting 15 May 11 AM'),
+  ('Raju Kumar',      'Kumar',   '9876534567', 'Kudur',          'St. Joseph School',          'Arts',  65.0, 'archived',     (SELECT id FROM staff WHERE username='radha'),  'Joined other college');
+
+-- ============================================================
+-- UTILITY: Annual reset (export data first, then call this)
+-- ============================================================
+CREATE OR REPLACE FUNCTION export_and_clear_old_data(cutoff_date DATE)
+RETURNS VOID AS $$
+BEGIN
+  DELETE FROM status_logs  WHERE changed_at < cutoff_date;
+  DELETE FROM sms_logs     WHERE sent_at    < cutoff_date;
+  DELETE FROM applications WHERE created_at < cutoff_date;
+  ALTER SEQUENCE app_id_seq RESTART WITH 1;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- DONE! Default login credentials:
+--   admin   / PIN: 0000  → Admin dashboard
+--   office1 / PIN: 9012  → Office dashboard
+--   kumar   / PIN: 1234  → Teacher dashboard
+--   radha   / PIN: 5678  → Teacher dashboard
+-- Change PINs via Admin Dashboard after first login.
 -- ============================================================
