@@ -8,8 +8,8 @@
 
 set -euo pipefail
 
-SUPABASE_URL="https://agijfkdmqenpwgfhknfr.supabase.co"
-ANON_KEY="sb_publishable_Vz6n2lYhChkU1sa-cl5z1A_YygBjYCU"
+SUPABASE_URL="https://iznztuqzzfwmzykwgoou.supabase.co"
+ANON_KEY="${VITE_SUPABASE_ANON_KEY:-placeholder}"
 
 echo "Waking Supabase: $SUPABASE_URL ..."
 
@@ -27,7 +27,7 @@ case "$STATUS" in
     ;;
   000)
     echo "⏳ No response — database may be sleeping."
-    echo "   Visit https://supabase.com/dashboard/project/agijfkdmqenpwgfhknfr"
+    echo "   Visit https://supabase.com/dashboard/project/iznztuqzzfwmzykwgoou"
     echo "   Opening the project in the dashboard wakes it automatically."
     ;;
   *)

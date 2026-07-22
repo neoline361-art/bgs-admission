@@ -67,7 +67,7 @@ pnpm --filter @workspace/bgs-admission run dev
 Supabase free tier pauses after 7 days of inactivity. To wake it:
 
 ```bash
-./scripts/wake-db.sh
+VITE_SUPABASE_ANON_KEY="your_anon_key" ./scripts/wake-db.sh
 ```
 
 Or set up a cron job (`crontab -e`):
