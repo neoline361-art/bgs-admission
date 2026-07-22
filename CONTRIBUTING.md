@@ -1,16 +1,32 @@
-# Contributing to BGS Admission Connect
+# Contributing
 
-Thanks for your interest! This is a free, open-source admission management tool for PU colleges.
+## Prerequisites
 
-## Guidelines
+- Node.js 22+
+- pnpm (latest)
+- Supabase account (free tier)
 
-1. Open an issue first for bugs or feature requests
-2. Keep PRs focused on one concern
-3. Run `pnpm run typecheck` before submitting
-4. Run `pnpm run build` to verify the build
+## Setup
 
-## Architecture
+```bash
+git clone https://github.com/neoline361-art/bgs-admission.git
+cd bgs-admission
+pnpm install
+cp artifacts/bgs-admission/.env.example artifacts/bgs-admission/.env
+# Edit .env with your Supabase credentials
+pnpm --filter @workspace/bgs-admission run dev
+```
 
-- `artifacts/bgs-admission/` — React frontend (Vite + Tailwind)
-- `supabase/schema.sql` — Database schema (PostgreSQL)
-- `scripts/` — Utility scripts (wake-db, deploy helpers)
+## Before Submitting
+
+1. `pnpm run typecheck` — passes
+2. `pnpm --filter @workspace/bgs-admission run build` — passes
+3. Format with `prettier --write .`
+
+## Commit Messages
+
+```
+<type>(<scope>): <description>
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`

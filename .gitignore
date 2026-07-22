@@ -50,3 +50,6 @@ Thumbs.db
 
 # Contains real Supabase keys
 artifacts/bgs-admission/.env
+
+# Source materials (not part of the app)
+attached_assets/
