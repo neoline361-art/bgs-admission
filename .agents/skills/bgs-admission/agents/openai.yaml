@@ -1,0 +1,6 @@
+interface:
+  display_name: "Bgs Admission"
+  short_description: "Repo-specific patterns and workflows for bgs-admission"
+  default_prompt: "Use the bgs-admission repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
